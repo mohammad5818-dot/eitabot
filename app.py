@@ -2,22 +2,29 @@ import os
 import io
 import json
 import base64
-import requests # برای بررسی عضویت (نیازمند توکن واسط)
+import requests
 from flask import Flask, render_template, request, jsonify
 
-# --- تنظیمات ---
-app = Flask(__name__)
+# ⚠️ مهم: برای استفاده از gemini_client در سطح بالا، باید ایمپورت شوند.
+try:
+    from google import genai 
+    from google.genai.errors import APIError
+except ImportError:
+    print("❌ خطای ایمپورت: google-genai نصب نشده است.")
+
+# --- تنظیمات و مقداردهی اولیه Flask (برای رفع خطای gunicorn.errors.AppImportError) ---
+# آبجکت 'app' باید در سطح بالای فایل تعریف شود تا Gunicorn آن را پیدا کند.
+app = Flask(__name__) 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secure-key')
 
-# ⚠️ کلیدهای واقعی خود را تنظیم کنید
+# --- ثابت‌ها ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_KEY")
-EITAA_BOT_TOKEN = os.environ.get("EITAA_BOT_TOKEN", "YOUR_EITAA_YAR_TOKEN") # توکن واسط برای چک عضویت
+EITAA_BOT_TOKEN = os.environ.get("EITAA_BOT_TOKEN", "YOUR_EITAA_YAR_TOKEN") 
 
 # لیست کانال‌هایی که کاربر باید عضو آن‌ها باشد (آیدی کانال بدون @)
 REQUIRED_CHANNELS = ["hodhod500_amoozesh", "hodhod500_ax"] 
 
-# --- وضعیت و اعتبار کاربر ---
-# (در محیط واقعی باید از پایگاه داده استفاده شود)
+# --- مدیریت وضعیت و اعتبار کاربر (در محیط واقعی باید از پایگاه داده استفاده شود) ---
 user_data = {} 
 
 def get_user_state(user_id):
@@ -27,16 +34,13 @@ def get_user_state(user_id):
         user_data[user_id] = {'credits': 3, 'is_member': False, 'gemini_file_id': None}
     return user_data[user_id]
 
-def check_eitaa_membership(user_id: int, channel_id: str) -> bool:
-    """
-    بررسی عضویت در کانال از طریق یک API واسط (مثلاً EitaaYar).
-    ⚠️ این قسمت فرضی است و به در دسترس بودن API واسط معتبر بستگی دارد.
-    """
-    if not EITAA_BOT_TOKEN:
+def check_eitaa_membership(user_id: str, channel_id: str) -> bool:
+    """بررسی عضویت در کانال از طریق یک API واسط (فرضی)."""
+    if not EITAA_BOT_TOKEN or EITAA_BOT_TOKEN == "YOUR_EITAA_YAR_TOKEN":
         print("هشدار: EITAA_BOT_TOKEN تنظیم نشده. عضویت همیشه True فرض می‌شود.")
-        return True # اگر توکن واسط نیست، برای تست True فرض می‌کنیم
+        return True
         
-    url = "https://eitaayar.ir/api/checkMembership" 
+    url = "https://eitaayar.ir/api/checkMembership" # آدرس فرضی API واسط
     
     try:
         response = requests.post(url, data={
@@ -47,7 +51,6 @@ def check_eitaa_membership(user_id: int, channel_id: str) -> bool:
         
         if response.status_code == 200:
             result = response.json()
-            # ⚠️ بسته به پاسخ API واسط، منطق را تنظیم کنید
             return result.get('status', 'not_member') == 'member'
         
     except requests.RequestException as e:
@@ -56,15 +59,16 @@ def check_eitaa_membership(user_id: int, channel_id: str) -> bool:
     return False
 
 # --- اتصال به Gemini ---
-try:
-    if GEMINI_API_KEY and GEMINI_API_KEY != "YOUR_GEMINI_KEY":
+gemini_client = None
+if GEMINI_API_KEY and GEMINI_API_KEY != "YOUR_GEMINI_KEY":
+    try:
         gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-    else:
-        gemini_client = None
-        print("هشدار: GEMINI_API_KEY تنظیم نشده.")
-except Exception as e:
-    gemini_client = None
-    print(f"خطا در ساخت کلاینت Gemini: {e}")
+        print("✅ اتصال به Gemini برقرار شد.")
+    except Exception as e:
+        print(f"❌ خطا در ساخت کلاینت Gemini: {e}")
+else:
+    print("⚠️ GEMINI_API_KEY تنظیم نشده است. فراخوانی‌های AI کار نخواهد کرد.")
+
 
 # =========================================================
 # مسیرهای Frontend
@@ -72,6 +76,7 @@ except Exception as e:
 @app.route('/')
 def mini_app():
     """ارائه صفحه HTML برنامک ایتا."""
+    # فایل 'index.html' را از پوشه 'templates' بارگذاری می‌کند.
     return render_template('index.html')
 
 
@@ -94,10 +99,9 @@ def get_status():
             
     user_state['is_member'] = all_member
     
-    # ۲. ست کردن اعتبار دیفالت (اگر اولین بار باشد)
+    # ۲. ست کردن اعتبار دیفالت 
     if all_member and user_state['credits'] == 0:
-        # اگر کاربر عضو شد و اعتبار صفر داشت، یک اعتبار تست بدهیم (اختیاری)
-        user_state['credits'] = 1 
+        user_state['credits'] = 1 # اعتبار تست
         
     return jsonify({
         'status': 'ok',
@@ -114,7 +118,7 @@ def get_status():
 def process_image():
     """دریافت عکس و پرامپت، پردازش و بازگرداندن نتیجه."""
     if gemini_client is None:
-        return jsonify({'error': 'AI_DISABLED', 'message': 'سرویس ویرایش عکس غیرفعال است.'}), 503
+        return jsonify({'error': 'AI_DISABLED', 'message': 'سرویس ویرایش عکس غیرفعال است. کلید Gemini را بررسی کنید.'}), 503
 
     data = request.get_json()
     user_id = str(data.get('user_id'))
@@ -130,9 +134,10 @@ def process_image():
     
     # ۲. تبدیل Base64 به شیء فایل
     try:
-        image_bytes = base64.b64decode(base64_image.split(',')[1])
+        # حذف پیشوند Base64
+        image_bytes = base64.b64decode(base64_image.split(',')[1]) 
         photo_data = io.BytesIO(image_bytes)
-        photo_data.name = "uploaded_image.jpeg" # نام‌گذاری برای تشخیص MIME
+        photo_data.name = "uploaded_image.jpeg" 
     except Exception:
         return jsonify({'error': 'INVALID_IMAGE', 'message': 'فرمت عکس نامعتبر است.'}), 400
         
@@ -142,11 +147,11 @@ def process_image():
         gemini_file = gemini_client.files.upload(file=photo_data) 
         gemini_file_id = gemini_file.name
         
-        # ۴. فراخوانی مدل (Image-to-Image Editing)
-        system_instruction = "You are an expert image editor. Based on the user's prompt, edit the provided image to fulfill the request. If the model cannot output an edited image directly, provide a highly descriptive text response detailing the necessary visual changes and why they are effective."
+        # ۴. فراخوانی مدل 
+        system_instruction = "You are an expert image editor. Based on the user's prompt, edit the provided image to fulfill the request. Describe the changes concisely."
 
         response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash', # یا یک مدل Multimodal قوی‌تر
+            model='gemini-2.5-flash',
             contents=[gemini_file, prompt],
             config=genai.types.GenerateContentConfig(
                 system_instruction=system_instruction
@@ -165,19 +170,15 @@ def process_image():
     except APIError as e:
         print(f"Gemini API Error: {e}")
         return jsonify({'error': 'GEMINI_ERROR', 'message': f'خطای سرویس هوش مصنوعی. {e}'}), 500
-    except Exception as e:
-        print(f"General Error: {e}")
-        return jsonify({'error': 'SERVER_ERROR', 'message': 'خطای داخلی سرور.'}), 500
         
     finally:
-        # ۶. پاکسازی فایل Gemini
+        # ۶. پاکسازی فایل آپلود شده
         if gemini_file_id:
             try:
                 gemini_client.files.delete(name=gemini_file_id)
             except Exception:
-                pass # نادیده گرفتن خطای پاکسازی
-
-
+                pass
+        
 # =========================================================
 # مسیر API: خرید اعتبار (صرفاً برای نمایش)
 # =========================================================
@@ -189,8 +190,7 @@ def buy_credit():
     amount = data.get('amount', 10) 
     
     user_state = get_user_state(user_id)
-    # ⚠️ در اینجا باید اتصال به درگاه پرداخت انجام شود.
-    # فرض می‌کنیم پرداخت موفق بوده است:
+    # ⚠️ در اینجا باید اتصال به درگاه پرداخت و تأیید پرداخت انجام شود.
     user_state['credits'] += amount
     
     return jsonify({
@@ -199,7 +199,5 @@ def buy_credit():
         'new_credits': user_state['credits']
     })
 
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+# ⚠️ این بخش (if __name__ == '__main__':) برای اجرای با Gunicorn حذف شده یا ساده شده است.
+# Gunicorn مستقیماً آبجکت 'app' را در سطح بالا بارگذاری می‌کند.
