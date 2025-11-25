@@ -42,7 +42,7 @@
         <div id="main-form" style="display: none;">
             <p id="credit-display">اعتبار باقی‌مانده: **0**</p>
             
-            <label>۱. ارسال عکس:</label>
+            <label>۱. ارسال عکس (JPG یا PNG):</label>
             <input type="file" id="image-file" accept="image/jpeg, image/png" required>
             
             <label>۲. پرامپت (دستور ویرایش):</label>
@@ -53,12 +53,12 @@
 
         <div id="credit-menu" style="display: none; text-align: center;">
             <p class="error">اعتبار شما به پایان رسیده است.</p>
-            <button onclick="buyCredit(10)">+۱۰ عکس (۵۰ تومان)</button>
-            <button onclick="buyCredit(20)">+۲۰ عکس (۹۰ تومان)</button>
+            <button onclick="buyCredit(10)" style="background-color: #007bff;">+۱۰ عکس (۵۰ تومان)</button>
+            <button onclick="buyCredit(20)" style="background-color: #ffc107; color: #333;">+۲۰ عکس (۹۰ تومان)</button>
         </div>
         
         <div id="output-area" style="margin-top: 20px; display: none;">
-            <h4>✅ نتیجه ویرایش:</h4>
+            <h4>✅ نتیجه ویرایش (توضیحات Gemini):</h4>
             <pre id="output-text" class="status-box success"></pre>
         </div>
         
@@ -70,7 +70,7 @@
         
         if (window.Eitaa && Eitaa.WebApp.initDataUnsafe && Eitaa.WebApp.initDataUnsafe.user) {
             Eitaa.WebApp.ready(); 
-            userId = Eitaa.WebApp.initDataUnsafe.user.id;
+            userId = Eitaa.WebApp.initDataUnsafe.user.id.toString(); // ارسال به صورت رشته به Backend
             checkStatus();
         } else {
             document.getElementById('app-status').className = 'status-box error';
@@ -131,7 +131,9 @@
             processBtn.innerHTML = '... در حال پردازش توسط Gemini';
             document.getElementById('output-area').style.display = 'none';
 
+            const file = fileInput.files[0];
             const reader = new FileReader();
+
             reader.onloadend = async function() {
                 const base64Image = reader.result;
 
@@ -152,9 +154,9 @@
                         document.getElementById('output-area').style.display = 'block';
                         document.getElementById('credit-display').innerHTML = `اعتبار باقی‌مانده: **${data.remaining_credits}** عکس`;
                         
-                        // بستن برنامک و ارسال پیام به چت اصلی (اختیاری)
+                        // ارسال یک پیام به چت اصلی ایتا (اختیاری)
                         Eitaa.WebApp.sendData(JSON.stringify({
-                            result: 'success',
+                            action: 'image_edited',
                             prompt: promptText 
                         })); 
                     } else {
@@ -169,12 +171,12 @@
                     checkStatus(); // وضعیت اعتبار را دوباره چک می‌کند
                 }
             };
-            reader.readAsDataURL(fileInput.files[0]);
+            reader.readAsDataURL(file);
         }
         
         async function buyCredit(amount) {
              const creditMenu = document.getElementById('credit-menu');
-             creditMenu.innerHTML = 'در حال انتقال به صفحه پرداخت... (این یک شبیه‌سازی است)';
+             creditMenu.innerHTML = 'در حال پردازش خرید اعتبار... (لطفاً منتظر باشید)';
              
              try {
                 const response = await fetch('/api/buy_credit', {
@@ -185,10 +187,10 @@
                 const data = await response.json();
                 
                 alert(`تبریک! شما ${amount} اعتبار خریدید. اعتبار جدید: ${data.new_credits}`);
-                checkStatus(); // به‌روزرسانی وضعیت UI
              } catch {
                  alert('خطا در خرید اعتبار.');
-                 checkStatus(); // بازگرداندن منوی خرید
+             } finally {
+                 checkStatus(); // بازگشت به وضعیت اصلی
              }
         }
 
