@@ -1,5 +1,4 @@
 Flask
 google-genai
 requests
-python-dotenv  # برای تست محلی (اختیاری)
-gunicorn       # برای اجرای برنامه در Render
+gunicorn
