@@ -5,42 +5,42 @@ import base64
 import requests
 from flask import Flask, render_template, request, jsonify
 
-# ⚠️ مهم: برای استفاده از gemini_client در سطح بالا، باید ایمپورت شوند.
-try:
-    from google import genai 
-    from google.genai.errors import APIError
-except ImportError:
-    print("❌ خطای ایمپورت: google-genai نصب نشده است.")
-
-# --- تنظیمات و مقداردهی اولیه Flask (برای رفع خطای gunicorn.errors.AppImportError) ---
-# آبجکت 'app' باید در سطح بالای فایل تعریف شود تا Gunicorn آن را پیدا کند.
+# --- ۱. تعریف آبجکت Flask (باید اولین شیء قابل مشاهده باشد) ---
 app = Flask(__name__) 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secure-key')
 
-# --- ثابت‌ها ---
+# --- ۲. تنظیمات و متغیرهای محیطی ---
+# تلاش برای ایمپورت کردن Gemini
+GEMINI_AVAILABLE = False
+try:
+    from google import genai 
+    from google.genai.errors import APIError
+    GEMINI_AVAILABLE = True
+except ImportError:
+    pass # اگر نصب نشد، فقط قابلیت هوش مصنوعی کار نمی‌کند.
+
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_KEY")
 EITAA_BOT_TOKEN = os.environ.get("EITAA_BOT_TOKEN", "YOUR_EITAA_YAR_TOKEN") 
 
-# لیست کانال‌هایی که کاربر باید عضو آن‌ها باشد (آیدی کانال بدون @)
 REQUIRED_CHANNELS = ["hodhod500_amoozesh", "hodhod500_ax"] 
 
-# --- مدیریت وضعیت و اعتبار کاربر (در محیط واقعی باید از پایگاه داده استفاده شود) ---
+# --- ۳. مدیریت وضعیت کاربر (Dummy Data) ---
 user_data = {} 
 
 def get_user_state(user_id):
     """مقداردهی اولیه و بازگرداندن داده‌های کاربر."""
     if user_id not in user_data:
-        # 3 اعتبار دیفالت برای تست
         user_data[user_id] = {'credits': 3, 'is_member': False, 'gemini_file_id': None}
     return user_data[user_id]
 
+# --- ۴. توابع کمکی ---
 def check_eitaa_membership(user_id: str, channel_id: str) -> bool:
     """بررسی عضویت در کانال از طریق یک API واسط (فرضی)."""
     if not EITAA_BOT_TOKEN or EITAA_BOT_TOKEN == "YOUR_EITAA_YAR_TOKEN":
         print("هشدار: EITAA_BOT_TOKEN تنظیم نشده. عضویت همیشه True فرض می‌شود.")
         return True
         
-    url = "https://eitaayar.ir/api/checkMembership" # آدرس فرضی API واسط
+    url = "https://eitaayar.ir/api/checkMembership" 
     
     try:
         response = requests.post(url, data={
@@ -50,47 +50,40 @@ def check_eitaa_membership(user_id: str, channel_id: str) -> bool:
         }, timeout=5)
         
         if response.status_code == 200:
-            result = response.json()
-            return result.get('status', 'not_member') == 'member'
+            return response.json().get('status', 'not_member') == 'member'
         
-    except requests.RequestException as e:
-        print(f"خطا در ارتباط با API واسط ایتا: {e}")
+    except requests.RequestException:
         return False
     return False
 
-# --- اتصال به Gemini ---
+# --- ۵. اتصال به Gemini ---
 gemini_client = None
-if GEMINI_API_KEY and GEMINI_API_KEY != "YOUR_GEMINI_KEY":
+if GEMINI_AVAILABLE and GEMINI_API_KEY and GEMINI_API_KEY != "YOUR_GEMINI_KEY":
     try:
         gemini_client = genai.Client(api_key=GEMINI_API_KEY)
         print("✅ اتصال به Gemini برقرار شد.")
     except Exception as e:
         print(f"❌ خطا در ساخت کلاینت Gemini: {e}")
 else:
-    print("⚠️ GEMINI_API_KEY تنظیم نشده است. فراخوانی‌های AI کار نخواهد کرد.")
+    print("⚠️ GEMINI_API_KEY تنظیم نشده یا کتابخانه در دسترس نیست. فراخوانی‌های AI کار نخواهد کرد.")
 
 
 # =========================================================
-# مسیرهای Frontend
+# مسیرهای (Routes) Flask
 # =========================================================
 @app.route('/')
 def mini_app():
     """ارائه صفحه HTML برنامک ایتا."""
-    # فایل 'index.html' را از پوشه 'templates' بارگذاری می‌کند.
     return render_template('index.html')
 
 
-# =========================================================
-# مسیر API: بررسی وضعیت و عضویت
-# =========================================================
 @app.route('/api/status', methods=['POST'])
 def get_status():
-    """بررسی عضویت در کانال‌ها و اعتباردهی اولیه."""
+    """بررسی عضویت و اعتبار کاربر."""
     data = request.get_json()
     user_id = str(data.get('user_id'))
     user_state = get_user_state(user_id)
     
-    # ۱. بررسی عضویت در تمامی کانال‌ها
     all_member = True
     for channel in REQUIRED_CHANNELS:
         if not check_eitaa_membership(user_id, channel):
@@ -99,9 +92,8 @@ def get_status():
             
     user_state['is_member'] = all_member
     
-    # ۲. ست کردن اعتبار دیفالت 
     if all_member and user_state['credits'] == 0:
-        user_state['credits'] = 1 # اعتبار تست
+        user_state['credits'] = 1 
         
     return jsonify({
         'status': 'ok',
@@ -111,14 +103,11 @@ def get_status():
     })
 
 
-# =========================================================
-# مسیر API: دریافت عکس و پرامپت، و پردازش با Gemini
-# =========================================================
 @app.route('/api/process_image', methods=['POST'])
 def process_image():
-    """دریافت عکس و پرامپت، پردازش و بازگرداندن نتیجه."""
+    """پردازش عکس با Gemini."""
     if gemini_client is None:
-        return jsonify({'error': 'AI_DISABLED', 'message': 'سرویس ویرایش عکس غیرفعال است. کلید Gemini را بررسی کنید.'}), 503
+        return jsonify({'error': 'AI_DISABLED', 'message': 'سرویس ویرایش عکس غیرفعال است.'}), 503
 
     data = request.get_json()
     user_id = str(data.get('user_id'))
@@ -126,15 +115,13 @@ def process_image():
     prompt = data.get('prompt')
     user_state = get_user_state(user_id)
     
-    # ۱. چک اعتبار و کسر
     if user_state['credits'] <= 0:
         return jsonify({'error': 'NO_CREDIT', 'message': 'اعتبار شما به پایان رسیده است.'}), 402
         
     user_state['credits'] -= 1
     
-    # ۲. تبدیل Base64 به شیء فایل
     try:
-        # حذف پیشوند Base64
+        # تبدیل Base64 به شیء فایل
         image_bytes = base64.b64decode(base64_image.split(',')[1]) 
         photo_data = io.BytesIO(image_bytes)
         photo_data.name = "uploaded_image.jpeg" 
@@ -143,12 +130,11 @@ def process_image():
         
     gemini_file_id = None
     try:
-        # ۳. آپلود در Gemini
+        # آپلود، پردازش و حذف
         gemini_file = gemini_client.files.upload(file=photo_data) 
         gemini_file_id = gemini_file.name
         
-        # ۴. فراخوانی مدل 
-        system_instruction = "You are an expert image editor. Based on the user's prompt, edit the provided image to fulfill the request. Describe the changes concisely."
+        system_instruction = "You are an expert image editor. Describe the changes concisely."
 
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
@@ -158,7 +144,6 @@ def process_image():
             )
         )
         
-        # ۵. بازگرداندن خروجی (در اینجا، خروجی فقط متن فرض می‌شود)
         result_text = response.text
         
         return jsonify({
@@ -168,20 +153,15 @@ def process_image():
         })
 
     except APIError as e:
-        print(f"Gemini API Error: {e}")
-        return jsonify({'error': 'GEMINI_ERROR', 'message': f'خطای سرویس هوش مصنوعی. {e}'}), 500
+        return jsonify({'error': 'GEMINI_ERROR', 'message': f'خطای سرویس هوش مصنوعی: {e}'}), 500
         
     finally:
-        # ۶. پاکسازی فایل آپلود شده
         if gemini_file_id:
             try:
                 gemini_client.files.delete(name=gemini_file_id)
             except Exception:
-                pass
+                pass 
         
-# =========================================================
-# مسیر API: خرید اعتبار (صرفاً برای نمایش)
-# =========================================================
 @app.route('/api/buy_credit', methods=['POST'])
 def buy_credit():
     """مسیر فرضی برای خرید اعتبار."""
@@ -190,7 +170,6 @@ def buy_credit():
     amount = data.get('amount', 10) 
     
     user_state = get_user_state(user_id)
-    # ⚠️ در اینجا باید اتصال به درگاه پرداخت و تأیید پرداخت انجام شود.
     user_state['credits'] += amount
     
     return jsonify({
@@ -199,5 +178,4 @@ def buy_credit():
         'new_credits': user_state['credits']
     })
 
-# ⚠️ این بخش (if __name__ == '__main__':) برای اجرای با Gunicorn حذف شده یا ساده شده است.
-# Gunicorn مستقیماً آبجکت 'app' را در سطح بالا بارگذاری می‌کند.
+# ⚠️ بلوک if __name__ == '__main__': برای جلوگیری از تداخل با Gunicorn حذف شد.
