@@ -1,1 +1,4 @@
-from app import app as server
+from app import server
+
+# Gunicorn اینجا سرور را اجرا می‌کند
+app = server
