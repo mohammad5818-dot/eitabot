@@ -1,5 +1,4 @@
-Flask
-google-genai
-requests
-python-dotenv  # برای تست محلی (اختیاری)
-gunicorn       # برای اجرای برنامه در Render
+Flask==2.3.4
+requests==2.31.0
+gunicorn==23.0.0
+python-dotenv==1.0.0
