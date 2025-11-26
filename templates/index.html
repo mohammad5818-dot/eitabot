@@ -1,57 +1,65 @@
 <!DOCTYPE html>
-<html lang="fa">
+<html lang="fa" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <title>ویرایشگر هوشمند عکس</title>
-    <style>
-        body { font-family: Tahoma, sans-serif; text-align: center; margin-top: 50px; }
-        .status-box { padding: 10px; border: 1px solid #ccc; display: inline-block; margin-bottom: 20px; }
-        #main-form { margin-top: 20px; }
-        button { padding: 10px 20px; font-size: 16px; }
-    </style>
+  <meta charset="utf-8" />
+  <title>ویرایشگر هوشمند عکس</title>
+  <style>
+    body { font-family: Tahoma, sans-serif; text-align: center; margin-top: 30px; }
+    .box { display:inline-block; padding:16px; background:#fff; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.08); }
+    input[type="file"] { margin:10px 0; }
+    button { padding:10px 16px; cursor:pointer; }
+    img { max-width:300px; display:block; margin:12px auto; border-radius:8px; }
+  </style>
 </head>
 <body>
-    <h2>ویرایشگر هوشمند عکس</h2>
-    <div id="app-status" class="status-box">در حال بررسی وضعیت و عضویت شما...</div>
+  <div class="box">
+    <h2>ویرایشگر هوشمند عکس 📸</h2>
+    <p id="status">ابتدا عضویت در کانال را بررسی کنید.</p>
+    <p><a id="channel-link" href="{{ channel }}" target="_blank">{{ channel }}</a></p>
 
-    <div id="main-form" style="display: none;">
-        <p id="credit-display"></p>
-        <p>لطفاً برای استفاده بهتر از ربات در کانال زیر عضو شوید:</p>
-        <p id="channel-link" style="font-weight: bold; color: blue;"></p>
-        <button onclick="checkMembership()">بررسی عضویت</button>
+    <form id="upload-form">
+      <input type="file" id="image" name="image" accept="image/*" required><br>
+      <input type="text" id="prompt" name="prompt" placeholder="توضیح بده چه ویرایشی میخوای..." style="width: 300px;"><br>
+      <input type="hidden" name="user_id" id="user_id" value="test_user">
+      <button type="submit">ارسال و پردازش</button>
+    </form>
+
+    <div id="result" style="display:none;">
+      <h4>نتیجه:</h4>
+      <img id="out-img" src="" alt="خروجی">
+      <p id="credits"></p>
     </div>
+  </div>
 
-    <script>
-        const statusBox = document.getElementById("app-status");
-        const mainForm = document.getElementById("main-form");
-        const creditDisplay = document.getElementById("credit-display");
-        const channelLink = document.getElementById("channel-link");
+  <script>
+    async function checkMembership() {
+      const res = await fetch("/check_membership");
+      const j = await res.json();
+      if (j.success && j.is_member) {
+        document.getElementById("status").textContent = "عضویت تایید شد — اعتبار: " + j.credits;
+        document.getElementById("credits").textContent = "اعتبار: " + j.credits;
+      } else {
+        document.getElementById("status").textContent = "لطفاً ابتدا در کانال عضو شوید.";
+      }
+    }
+    window.onload = checkMembership;
 
-        // دریافت آدرس کانال از template
-        const CHANNEL = "{{ channel }}";
-        channelLink.textContent = CHANNEL;
-
-        function checkMembership() {
-            statusBox.textContent = "در حال بررسی عضویت...";
-            fetch("/check_membership")
-                .then(response => response.json())
-                .then(data => {
-                    if(data.is_member) {
-                        statusBox.textContent = "عضویت تایید شد! 🎉";
-                        creditDisplay.textContent = "اعتبار باقی‌مانده: " + data.credits;
-                    } else {
-                        statusBox.textContent = "لطفاً ابتدا در کانال عضو شوید و دوباره بررسی کنید.";
-                    }
-                })
-                .catch(err => {
-                    statusBox.textContent = "خطا در بررسی وضعیت. دوباره تلاش کنید.";
-                    console.error(err);
-                });
-            mainForm.style.display = "block";
-        }
-
-        // نمایش فرم بعد از لود اولیه
-        mainForm.style.display = "block";
-    </script>
+    const form = document.getElementById("upload-form");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fdata = new FormData(form);
+      document.getElementById("status").textContent = "در حال ارسال و پردازش...";
+      const res = await fetch("/upload", { method: "POST", body: fdata });
+      const j = await res.json();
+      if (!j.success) {
+        document.getElementById("status").textContent = "خطا: " + (j.error || "نامشخص");
+        return;
+      }
+      document.getElementById("out-img").src = j.output_url + "?t=" + Date.now();
+      document.getElementById("result").style.display = "block";
+      document.getElementById("credits").textContent = "اعتبار باقی‌مانده: " + j.remaining_credits;
+      document.getElementById("status").textContent = "پردازش انجام شد ✅";
+    });
+  </script>
 </body>
 </html>
