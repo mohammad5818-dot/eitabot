@@ -1,9 +1,3 @@
-from flask import Flask
+from app import app
 
-print("🔥 WSGI FILE LOADED 🔥")
-
-server = Flask(__name__)
-
-@server.route("/")
-def home():
-    return "✅ WSGI WORKING"
+server = app
