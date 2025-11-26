@@ -1,11 +1,7 @@
-from flask import Flask
+from flask import Flask, render_template
 
-print("✅ app.py loaded")
+app = Flask(__name__)
 
-server = Flask(__name__)
-
-print("✅ server object created")
-
-@server.route("/")
-def test():
-    return "Server is OK"
+@app.route("/")
+def home():
+    return render_template("index.html")
