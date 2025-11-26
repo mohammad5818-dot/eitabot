@@ -1,3 +1,1 @@
-from app import app
-
-server = app
+from app import app as server
