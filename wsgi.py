@@ -1,4 +1,3 @@
-from app import server
+from app import server  # ← دقیقا نامی که در app.py گذاشتی
 
-# Gunicorn اینجا سرور را اجرا می‌کند
-app = server
+app = server  # gunicorn با این نام صدا می‌زند
