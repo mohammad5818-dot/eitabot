@@ -4,120 +4,54 @@
     <meta charset="UTF-8">
     <title>ویرایشگر هوشمند عکس</title>
     <style>
-        body {
-            font-family: Tahoma, sans-serif;
-            direction: rtl;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 500px;
-            margin: auto;
-            background: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        h2 {
-            text-align: center;
-            color: #333;
-        }
-        .status-box {
-            padding: 10px;
-            background: #eef;
-            border: 1px solid #99c;
-            border-radius: 5px;
-            text-align: center;
-            margin-bottom: 15px;
-        }
-        #main-form {
-            margin-top: 15px;
-        }
-        input[type="file"] {
-            display: block;
-            margin-top: 5px;
-        }
-        button {
-            margin-top: 10px;
-            padding: 10px 15px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        p {
-            font-size: 14px;
-        }
+        body { font-family: Tahoma, sans-serif; text-align: center; margin-top: 50px; }
+        .status-box { padding: 10px; border: 1px solid #ccc; display: inline-block; margin-bottom: 20px; }
+        #main-form { margin-top: 20px; }
+        button { padding: 10px 20px; font-size: 16px; }
     </style>
 </head>
 <body>
-<div class="container">
     <h2>ویرایشگر هوشمند عکس</h2>
     <div id="app-status" class="status-box">در حال بررسی وضعیت و عضویت شما...</div>
 
     <div id="main-form" style="display: none;">
-        <p id="credit-display">اعتبار باقی‌مانده: 0</p>
-        <label>ارسال عکس:</label>
-        <input type="file" id="user-photo" accept="image/*">
-        <button onclick="uploadPhoto()">ارسال و ویرایش عکس</button>
+        <p id="credit-display"></p>
+        <p>لطفاً برای استفاده بهتر از ربات در کانال زیر عضو شوید:</p>
+        <p id="channel-link" style="font-weight: bold; color: blue;"></p>
+        <button onclick="checkMembership()">بررسی عضویت</button>
     </div>
-</div>
 
-<script>
-function checkStatus() {
-    fetch('/check_status') // مسیر API شما
-        .then(res => res.json())
-        .then(data => {
-            if(data.is_member) {
-                document.getElementById('app-status').style.display = 'none';
-                document.getElementById('main-form').style.display = 'block';
-                document.getElementById('credit-display').textContent = 
-                    'اعتبار باقی‌مانده: ' + data.credits;
-            } else {
-                document.getElementById('app-status').textContent = 
-                    'شما عضو نیستید یا باید کانال‌ها را دنبال کنید.';
-            }
-        })
-        .catch(err => {
-            document.getElementById('app-status').textContent = 
-                'خطا در بررسی وضعیت، دوباره تلاش کنید.';
-            console.error(err);
-        });
-}
+    <script>
+        const statusBox = document.getElementById("app-status");
+        const mainForm = document.getElementById("main-form");
+        const creditDisplay = document.getElementById("credit-display");
+        const channelLink = document.getElementById("channel-link");
 
-function uploadPhoto() {
-    const fileInput = document.getElementById('user-photo');
-    if(fileInput.files.length === 0) {
-        alert('لطفاً یک عکس انتخاب کنید.');
-        return;
-    }
-    const formData = new FormData();
-    formData.append('photo', fileInput.files[0]);
+        // دریافت آدرس کانال از template
+        const CHANNEL = "{{ channel }}";
+        channelLink.textContent = CHANNEL;
 
-    fetch('/upload_photo', {  // مسیر آپلود عکس
-        method: 'POST',
-        body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-        if(data.success) {
-            alert('عکس با موفقیت ارسال و ویرایش شد!');
-        } else {
-            alert('خطا در ارسال عکس: ' + data.message);
+        function checkMembership() {
+            statusBox.textContent = "در حال بررسی عضویت...";
+            fetch("/check_membership")
+                .then(response => response.json())
+                .then(data => {
+                    if(data.is_member) {
+                        statusBox.textContent = "عضویت تایید شد! 🎉";
+                        creditDisplay.textContent = "اعتبار باقی‌مانده: " + data.credits;
+                    } else {
+                        statusBox.textContent = "لطفاً ابتدا در کانال عضو شوید و دوباره بررسی کنید.";
+                    }
+                })
+                .catch(err => {
+                    statusBox.textContent = "خطا در بررسی وضعیت. دوباره تلاش کنید.";
+                    console.error(err);
+                });
+            mainForm.style.display = "block";
         }
-    })
-    .catch(err => {
-        alert('خطا در ارتباط با سرور.');
-        console.error(err);
-    });
-}
 
-// بررسی وضعیت هنگام بارگذاری صفحه
-window.onload = checkStatus;
-</script>
+        // نمایش فرم بعد از لود اولیه
+        mainForm.style.display = "block";
+    </script>
 </body>
 </html>
