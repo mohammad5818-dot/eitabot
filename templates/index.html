@@ -1,192 +1,204 @@
 <!DOCTYPE html>
-<html lang="fa">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ویرایشگر عکس ایتا</title>
-<script src="https://bot.eitaa.com/eitaa-web-app.js"></script>
-<style>
-body {
-    margin: 0;
-    padding: 15px;
-    font-family: Tahoma, sans-serif;
-    background-color: var(--tg-theme-bg-color, #f4f4f4);
-    color: var(--tg-theme-text-color, #333);
-    direction: rtl;
-    text-align: right;
-}
-.container { max-width: 450px; margin: 0 auto; }
-input[type="file"], textarea {
-    width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 5px;
-    border: 1px solid var(--tg-theme-secondary-bg-color, #ccc);
-    box-sizing: border-box;
-    background-color: var(--tg-theme-secondary-bg-color, white);
-    color: var(--tg-theme-text-color, #333);
-}
-textarea { height: 80px; resize: vertical; }
-button {
-    width: 100%;
-    padding: 12px;
-    margin-top: 10px;
-    border: none;
-    border-radius: 5px;
-    font-weight: bold;
-    cursor: pointer;
-    background-color: var(--tg-theme-button-color, #5ac663);
-    color: var(--tg-theme-button-text-color, white);
-}
-.status-box { padding: 10px; margin-bottom: 15px; border-radius: 5px; }
-.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-#credit-menu button { margin-top: 5px; width: 48%; display: inline-block; }
-</style>
+    <title>ویرایشگر عکس ایتا</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <script src="https://bot.eitaa.com/eitaa-web-app.js"></script> 
+    <style>
+        body { 
+            margin: 0; padding: 15px; font-family: Tahoma, sans-serif; 
+            background-color: var(--tg-theme-bg-color, #f4f4f4);
+            color: var(--tg-theme-text-color, #333);
+            text-align: right; direction: rtl;
+        }
+        .container { max-width: 450px; margin: 0 auto; }
+        input[type="file"], textarea {
+            width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 5px;
+            border: 1px solid var(--tg-theme-secondary-bg-color, #ccc);
+            background-color: var(--tg-theme-secondary-bg-color, white);
+            color: var(--tg-theme-text-color, #333);
+            box-sizing: border-box;
+        }
+        textarea { height: 80px; resize: vertical; }
+        button {
+            width: 100%; background-color: var(--tg-theme-button-color, #5ac663);
+            color: var(--tg-theme-button-text-color, white); border: none;
+            padding: 12px; margin-top: 10px; cursor: pointer; border-radius: 5px;
+            font-weight: bold;
+        }
+        .status-box { padding: 10px; margin-bottom: 15px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        #credit-menu button { margin-top: 5px; width: 48%; display: inline-block; }
+    </style>
 </head>
 <body>
-<div class="container">
-<h2>ویرایشگر هوشمند عکس</h2>
+    <div class="container">
+        <h2>ویرایشگر هوشمند عکس</h2>
+        
+        <div id="app-status" class="status-box">در حال بررسی وضعیت و عضویت شما...</div>
 
-<div id="app-status" class="status-box">در حال بررسی وضعیت و عضویت شما...</div>
+        <div id="main-form" style="display: none;">
+            <p id="credit-display">اعتبار باقی‌مانده: **0**</p>
+            
+            <label>ارسال عکس:</label>
+            <input type="file" id="image-file" accept="image/jpeg, image/png" required>
+            
+            <label>پرامپت (دستور ویرایش):</label>
+            <textarea id="prompt-text" placeholder="مثال: «این شخص را با عینک آفتابی و پس‌زمینه ساحلی نشان بده.»" required></textarea>
+            
+            <button onclick="processImage()" id="process-btn">🔄 شروع ویرایش عکس</button>
+        </div>
 
-<div id="main-form" style="display: none;">
-    <p id="credit-display">اعتبار باقی‌مانده: **0**</p>
-    
-    <label>۱. ارسال عکس:</label>
-    <input type="file" id="image-file" accept="image/jpeg, image/png" required>
-    
-    <label>۲. پرامپت (دستور ویرایش):</label>
-    <textarea id="prompt-text" placeholder="مثال: «این شخص را با عینک آفتابی و پس‌زمینه ساحلی نشان بده.»" required></textarea>
-    
-    <button id="process-btn">🔄 شروع ویرایش عکس</button>
-</div>
+        <div id="credit-menu" style="display: none; text-align: center;">
+            <p class="error">اعتبار شما به پایان رسیده است.</p>
+            <button onclick="buyCredit(10)">+۱۰ عکس (۵۰ تومان)</button>
+            <button onclick="buyCredit(20)">+۲۰ عکس (۹۰ تومان)</button>
+        </div>
+        
+        <div id="output-area" style="margin-top: 20px; display: none;">
+            <h4>✅ نتیجه ویرایش:</h4>
+            <pre id="output-text" class="status-box success"></pre>
+        </div>
+        
+        <button onclick="Eitaa.WebApp.close()" style="background-color: #f1f1f1; color: #333;">❌ بستن برنامک</button>
+    </div>
 
-<div id="credit-menu" style="display: none; text-align: center;">
-    <p class="error">اعتبار شما به پایان رسیده است.</p>
-    <button onclick="buyCredit(10)">+۱۰ عکس (۵۰ تومان)</button>
-    <button onclick="buyCredit(20)">+۲۰ عکس (۹۰ تومان)</button>
-</div>
+    <script>
+        let userId;
 
-<div id="output-area" style="margin-top: 20px; display: none;">
-    <h4>✅ نتیجه ویرایش:</h4>
-    <pre id="output-text" class="status-box success"></pre>
-</div>
-
-<button onclick="Eitaa.WebApp.close()" style="background-color: #f1f1f1; color: #333;">❌ بستن برنامک</button>
-</div>
-
-<script>
-let userId = null;
-
-function initApp() {
-    if (window.Eitaa && Eitaa.WebApp.initDataUnsafe && Eitaa.WebApp.initDataUnsafe.user) {
-        Eitaa.WebApp.ready();
-        userId = Eitaa.WebApp.initDataUnsafe.user.id;
-        checkStatus();
-    } else {
-        document.getElementById('app-status').className = 'status-box error';
-        document.getElementById('app-status').innerText = '❌ لطفاً این صفحه را از طریق ربات ایتا باز کنید.';
-    }
-}
-
-async function checkStatus() {
-    try {
-        const res = await fetch('/api/status', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ user_id: userId })
-        });
-        const data = await res.json();
-        const statusDiv = document.getElementById('app-status');
-        const creditDisplay = document.getElementById('credit-display');
-
-        if (data.is_member) {
-            statusDiv.className = 'status-box success';
-            statusDiv.innerText = '✅ عضویت شما تایید شد. خوش آمدید!';
-            creditDisplay.innerText = `اعتبار باقی‌مانده: **${data.credits}** عکس`;
-
-            if (data.credits > 0) {
-                document.getElementById('main-form').style.display = 'block';
-                document.getElementById('credit-menu').style.display = 'none';
-            } else {
-                document.getElementById('main-form').style.display = 'none';
-                document.getElementById('credit-menu').style.display = 'block';
-            }
+        // اگر WebApp واقعی ایتا موجود باشد
+        if (window.Eitaa && Eitaa.WebApp && Eitaa.WebApp.initDataUnsafe && Eitaa.WebApp.initDataUnsafe.user) {
+            Eitaa.WebApp.ready(); 
+            userId = Eitaa.WebApp.initDataUnsafe.user.id;
         } else {
-            statusDiv.className = 'status-box error';
-            statusDiv.innerHTML = `❌ برای استفاده از برنامک، لطفاً در کانال‌های زیر عضو شوید:<br>
-            ${data.required_channels.map(c => `<a href="https://t.me/${c}" target="_blank">@${c}</a>`).join(', ')}
-            <br>بعد از عضویت، برنامک را مجدداً باز کنید.`;
-            document.getElementById('main-form').style.display = 'none';
-            document.getElementById('credit-menu').style.display = 'none';
+            // شبیه‌سازی کاربر برای تست در مرورگر
+            console.warn("⚠️ WebApp واقعی ایتا پیدا نشد، از userId شبیه‌سازی شده استفاده می‌شود.");
+            window.Eitaa = {
+                WebApp: {
+                    ready: () => {},
+                    initDataUnsafe: { user: { id: 123456 } },
+                    sendData: (data) => console.log("SendData:", data),
+                    close: () => console.log("WebApp.close() called")
+                }
+            };
+            userId = 123456;
         }
-    } catch {
-        document.getElementById('app-status').className = 'status-box error';
-        document.getElementById('app-status').innerText = '❌ خطای ارتباط با سرور.';
-    }
-}
 
-document.getElementById('process-btn').addEventListener('click', async () => {
-    const fileInput = document.getElementById('image-file');
-    const promptText = document.getElementById('prompt-text').value;
-    const processBtn = document.getElementById('process-btn');
+        checkStatus();
 
-    if (!fileInput.files.length || !promptText) {
-        alert('لطفاً عکس و پرامپت را وارد کنید.');
-        return;
-    }
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/status', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await response.json();
+                
+                const statusDiv = document.getElementById('app-status');
+                const creditDisplay = document.getElementById('credit-display');
 
-    processBtn.disabled = true;
-    processBtn.innerText = '... در حال پردازش توسط Gemini';
-    document.getElementById('output-area').style.display = 'none';
-
-    const reader = new FileReader();
-    reader.onloadend = async function() {
-        const base64Image = reader.result;
-        try {
-            const res = await fetch('/api/process_image', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ user_id: userId, image: base64Image, prompt: promptText })
-            });
-            const data = await res.json();
-            if (data.status === 'success') {
-                document.getElementById('output-text').innerText = data.result;
-                document.getElementById('output-area').style.display = 'block';
-                document.getElementById('credit-display').innerText = `اعتبار باقی‌مانده: **${data.remaining_credits}** عکس`;
-
-                Eitaa.WebApp.sendData(JSON.stringify({ result: 'success', prompt: promptText }));
-            } else {
-                alert(`خطا: ${data.message || 'خطای ناشناخته.'}`);
+                if (data.is_member) {
+                    statusDiv.className = 'status-box success';
+                    statusDiv.innerHTML = `✅ عضویت شما تایید شد. خوش آمدید!`;
+                    creditDisplay.innerHTML = `اعتبار باقی‌مانده: **${data.credits}** عکس`;
+                    
+                    if (data.credits > 0) {
+                        document.getElementById('main-form').style.display = 'block';
+                        document.getElementById('credit-menu').style.display = 'none';
+                    } else {
+                        document.getElementById('main-form').style.display = 'none';
+                        document.getElementById('credit-menu').style.display = 'block';
+                    }
+                } else {
+                    statusDiv.className = 'status-box error';
+                    statusDiv.innerHTML = `
+                        ❌ برای استفاده از برنامک، لطفاً در کانال‌های مورد نیاز عضو شوید.
+                    `;
+                    document.getElementById('main-form').style.display = 'none';
+                    document.getElementById('credit-menu').style.display = 'none';
+                }
+            } catch (error) {
+                document.getElementById('app-status').className = 'status-box error';
+                document.getElementById('app-status').innerHTML = '❌ خطای ارتباط با سرور.';
             }
-        } catch {
-            alert('خطا در ارسال به سرور.');
-        } finally {
-            processBtn.disabled = false;
-            processBtn.innerText = '🔄 شروع ویرایش عکس';
-            checkStatus();
         }
-    };
-    reader.readAsDataURL(fileInput.files[0]);
-});
 
-async function buyCredit(amount) {
-    const creditMenu = document.getElementById('credit-menu');
-    creditMenu.innerHTML = 'در حال انتقال به صفحه پرداخت... (شبیه‌سازی)';
-    try {
-        const res = await fetch('/api/buy_credit', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ user_id: userId, amount })
-        });
-        const data = await res.json();
-        alert(`تبریک! شما ${amount} اعتبار خریدید. اعتبار جدید: ${data.new_credits}`);
-        checkStatus();
-    } catch {
-        alert('خطا در خرید اعتبار.');
-        checkStatus();
-    }
-}
+        async function processImage() {
+            const fileInput = document.getElementById('image-file');
+            const promptText = document.getElementById('prompt-text').value;
+            const processBtn = document.getElementById('process-btn');
 
-initApp();
-</script>
+            if (!fileInput.files.length || !promptText) {
+                alert('لطفاً عکس و پرامپت را وارد کنید.');
+                return;
+            }
+
+            processBtn.disabled = true;
+            processBtn.innerHTML = '... در حال پردازش توسط Gemini';
+            document.getElementById('output-area').style.display = 'none';
+
+            const reader = new FileReader();
+            reader.onloadend = async function() {
+                const base64Image = reader.result;
+
+                try {
+                    const response = await fetch('/api/process_image', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            user_id: userId,
+                            image: base64Image,
+                            prompt: promptText
+                        })
+                    });
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        document.getElementById('output-text').innerText = data.result;
+                        document.getElementById('output-area').style.display = 'block';
+                        document.getElementById('credit-display').innerHTML = `اعتبار باقی‌مانده: **${data.remaining_credits}** عکس`;
+                        
+                        Eitaa.WebApp.sendData(JSON.stringify({
+                            result: 'success',
+                            prompt: promptText 
+                        })); 
+                    } else {
+                        alert(`خطا: ${data.message || 'خطای ناشناخته.'}`);
+                    }
+                    
+                } catch (error) {
+                    alert('خطا در ارسال به سرور.');
+                } finally {
+                    processBtn.disabled = false;
+                    processBtn.innerHTML = '🔄 شروع ویرایش عکس';
+                    checkStatus();
+                }
+            };
+            reader.readAsDataURL(fileInput.files[0]);
+        }
+        
+        async function buyCredit(amount) {
+             const creditMenu = document.getElementById('credit-menu');
+             creditMenu.innerHTML = 'در حال انتقال به صفحه پرداخت... (این یک شبیه‌سازی است)';
+             
+             try {
+                const response = await fetch('/api/buy_credit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: userId, amount: amount })
+                });
+                const data = await response.json();
+                
+                alert(`تبریک! شما ${amount} اعتبار خریدید. اعتبار جدید: ${data.new_credits}`);
+                checkStatus();
+             } catch {
+                 alert('خطا در خرید اعتبار.');
+                 checkStatus();
+             }
+        }
+
+    </script>
 </body>
 </html>
