@@ -1,33 +1,23 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, jsonify, render_template
 
 app = Flask(__name__)
 
-@app.route("/")
-def home():
-    return render_template("index.html")
+# آدرس کانال مورد نظر
+CHANNEL_USERNAME = "@HODHOD500"
 
-@app.route("/api/status", methods=["POST"])
-def status():
-    data = request.get_json()
-    # نمونه پاسخ شبیه‌سازی شده
+@app.route('/')
+def index():
+    return render_template("index.html", channel=CHANNEL_USERNAME)
+
+@app.route('/check_membership')
+def check_membership():
+    # اینجا می‌توانید منطق واقعی بررسی عضویت را اضافه کنید
+    # فعلا برای تست، عضویت را True و اعتبار را 5 قرار می‌دهیم
     return jsonify({
         "is_member": True,
         "credits": 5,
-        "required_channels": []
+        "required_channels": [CHANNEL_USERNAME]
     })
 
-@app.route("/api/process_image", methods=["POST"])
-def process_image():
-    data = request.get_json()
-    # فقط شبیه‌سازی پردازش تصویر
-    return jsonify({
-        "status": "success",
-        "result": "تصویر شما با موفقیت ویرایش شد!",
-        "remaining_credits": 4
-    })
-
-@app.route("/api/buy_credit", methods=["POST"])
-def buy_credit():
-    data = request.get_json()
-    new_credits = data.get("amount", 0)
-    return jsonify({"new_credits": new_credits})
+if __name__ == '__main__':
+    app.run(debug=True)
